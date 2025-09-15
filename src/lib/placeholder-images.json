@@ -1,0 +1,64 @@
+{
+  "placeholderImages": [
+    {
+      "id": "hero-image",
+      "description": "Um vira-lata caramelo feliz brincando ao ar livre em uma praça no Brasil.",
+      "imageUrl": "https://picsum.photos/seed/brasil1/1200/800",
+      "imageHint": "dog brazil"
+    },
+    {
+      "id": "vet-1",
+      "description": "Dra. Emily Carter, Veterinária Chefe",
+      "imageUrl": "https://picsum.photos/seed/vet1/400/400",
+      "imageHint": "brazilian woman"
+    },
+    {
+      "id": "vet-2",
+      "description": "Dr. Ben Jacobs, Cirurgião",
+      "imageUrl": "https://picsum.photos/seed/vet2/400/400",
+      "imageHint": "brazilian man"
+    },
+    {
+      "id": "vet-3",
+      "description": "Maria Garcia, Técnica Veterinária",
+      "imageUrl": "https://picsum.photos/seed/vet3/400/400",
+      "imageHint": "brazilian woman professional"
+    },
+    {
+      "id": "vet-4",
+      "description": "David Chen, Assistente de Cuidados com Animais",
+      "imageUrl": "https://picsum.photos/seed/vet4/400/400",
+      "imageHint": "brazilian man smiling"
+    },
+    {
+      "id": "chatbot-avatar",
+      "description": "Avatar para o chatbot, um gato fofo de óculos.",
+      "imageUrl": "https://picsum.photos/seed/catbot/100/100",
+      "imageHint": "cat glasses"
+    },
+    {
+      "id": "testimonial-1",
+      "description": "Max, um Golden Retriever feliz.",
+      "imageUrl": "https://picsum.photos/seed/pet1/200/200",
+      "imageHint": "golden retriever"
+    },
+    {
+      "id": "testimonial-2",
+      "description": "Whiskers, um Gato Siamês.",
+      "imageUrl": "https://picsum.photos/seed/pet2/200/200",
+      "imageHint": "siamese cat"
+    },
+    {
+      "id": "testimonial-3",
+      "description": "Rocky, um Bulldog.",
+      "imageUrl": "https://picsum.photos/seed/pet3/200/200",
+      "imageHint": "bulldog"
+    },
+    {
+      "id": "testimonial-4",
+      "description": "Luna, uma Gata Vira-lata.",
+      "imageUrl": "https://picsum.photos/seed/pet4/200/200",
+      "imageHint": "tabby cat"
+    }
+  ]
+}
