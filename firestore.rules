@@ -1,40 +1,57 @@
+
 rules_version = '2';
+
+// As regras abaixo garantem que apenas usuários autenticados podem acessar o
+// banco de dados, e que usuários só podem modificar seus próprios dados.
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Regra Geral: Nega acesso a qualquer documento não especificado.
-    match /{document=**} {
-      allow read, write: if false;
-    }
-    
-    // Coleção de Tutores
-    // - Permite que um usuário crie seu próprio documento de tutor.
-    // - Permite que um usuário leia, atualize ou delete seu próprio documento.
-    // - Permite que profissionais ('vet') leiam qualquer perfil de tutor.
-    match /tutors/{userId} {
-      allow read, update, delete: if request.auth != null && request.auth.uid == userId;
-      allow create: if request.auth != null;
-      allow read: if request.auth != null && request.auth.token.email.matches('.*vet.*');
+    // Função auxiliar para verificar se o usuário autenticado tem a role de 'professional'
+    function isProfessional() {
+      return get(/databases/$(database)/documents/tutors/$(request.auth.uid)).data.role == 'professional';
     }
 
-    // Coleção de Pets
-    // - Permite que um usuário crie um pet se o 'tutorId' for o seu próprio UID.
-    // - Permite que um usuário leia, atualize ou delete um pet que pertence a ele.
-    // - Permite que profissionais leiam qualquer documento de pet.
+    // Coleção 'tutors' (que inclui clientes e profissionais)
+    match /tutors/{userId} {
+      // Qualquer um pode criar seu próprio perfil (cadastro).
+      allow create: if request.auth != null;
+      // Um usuário só pode ler ou atualizar seu próprio perfil.
+      // Um profissional pode ler qualquer perfil.
+      allow read, update: if request.auth.uid == userId || isProfessional();
+    }
+
+    // Coleção 'pets'
     match /pets/{petId} {
-      allow create: if request.auth != null && request.resource.data.tutorId == request.auth.uid;
-      allow read, update, delete: if request.auth != null && get(/databases/$(database)/documents/pets/$(petId)).data.tutorId == request.auth.uid;
-      allow read, update: if request.auth != null && request.auth.token.email.matches('.*vet.*');
+      // Um usuário só pode ler ou deletar os pets que pertencem a ele.
+      // Um profissional pode ler ou deletar qualquer pet.
+      allow read, delete: if resource.data.tutorId == request.auth.uid || isProfessional();
+      // Um usuário só pode criar/atualizar pets para si mesmo.
+      // Um profissional pode criar/atualizar qualquer pet.
+      allow create, update: if request.resource.data.tutorId == request.auth.uid || isProfessional();
+    }
+
+    // Coleção 'appointments'
+    match /appointments/{appointmentId} {
+        // Um profissional pode ler, criar, atualizar ou deletar qualquer agendamento.
+        allow read, create, update, delete: if isProfessional();
+        // Um cliente pode ler ou criar seus próprios agendamentos.
+        allow read, create: if request.auth.uid == request.resource.data.tutorId;
+        // Um cliente pode ler seus agendamentos existentes.
+        allow read: if request.auth.uid == resource.data.tutorId;
+    }
+
+    // Coleção 'invoices' (Faturas)
+    match /invoices/{invoiceId} {
+      // Um profissional pode gerenciar completamente as faturas.
+      allow read, create, update, delete: if isProfessional();
+      // Um cliente só pode ler as faturas que pertencem a ele.
+      allow read: if resource.data.clientId == request.auth.uid;
     }
     
-    // Coleção de Agendamentos
-    // - Permite que um usuário crie um agendamento se o 'tutorId' for o seu próprio UID.
-    // - Permite que um usuário leia seus próprios agendamentos.
-    // - Permite que profissionais criem e leiam todos os agendamentos.
-    match /appointments/{appointmentId} {
-       allow create: if request.auth != null && (request.resource.data.tutorId == request.auth.uid || request.auth.token.email.matches('.*vet.*'));
-       allow read: if request.auth != null && (get(/databases/$(database)/documents/appointments/$(appointmentId)).data.tutorId == request.auth.uid || request.auth.token.email.matches('.*vet.*'));
-       allow update, delete: if request.auth != null && request.auth.token.email.matches('.*vet.*'); // Apenas profissionais podem alterar/deletar
+    // Coleção 'inventory' (Estoque)
+    match /inventory/{itemId} {
+        // Apenas profissionais podem ler e escrever no estoque.
+        allow read, write: if isProfessional();
     }
   }
 }

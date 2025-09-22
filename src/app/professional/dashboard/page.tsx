@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useAppointments } from "@/context/AppointmentsContext";
@@ -22,20 +23,25 @@ import { usePets } from "@/context/PetsContext";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ArrowUpRight, Clock, PawPrint, PhoneForwarded, Loader2, Users } from "lucide-react";
+import { ArrowUpRight, Clock, PawPrint, PhoneForwarded, Loader2, Users, DollarSign, FileWarning, Package, AlertCircle, MessageSquareCheck } from "lucide-react";
 import Link from "next/link";
 import { useNotifications } from "@/context/NotificationsContext";
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis } from "recharts"
-import { useTutor } from "@/context/TutorContext";
-import { startOfWeek, eachDayOfInterval, format, parseISO } from 'date-fns';
+import { useTutors } from "@/context/TutorsContext";
+import { startOfWeek, eachDayOfInterval, format, parseISO, startOfMonth, endOfMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { useInvoices } from "@/context/InvoicesContext";
+import { useInventory } from "@/context/InventoryContext";
+import { Skeleton } from "@/components/ui/skeleton";
 
 
 export default function ProfessionalDashboard() {
   const { appointments, loading: appointmentsLoading } = useAppointments();
   const { pets, loading: petsLoading } = usePets();
   const { notifications, clearNotifications } = useNotifications();
-  const { tutor, loading: tutorLoading } = useTutor();
+  const { tutors, loading: tutorsLoading } = useTutors();
+  const { invoices, loading: invoicesLoading } = useInvoices();
+  const { inventory, loading: inventoryLoading } = useInventory();
 
 
   const today = new Date();
@@ -61,9 +67,20 @@ export default function ProfessionalDashboard() {
 
     const totalPets = pets.length;
     const totalTutors = new Set(pets.map(p => p.tutorId)).size;
+    
+    const firstDayOfMonth = startOfMonth(today);
+    const lastDayOfMonth = endOfMonth(today);
 
-    return { totalToday, totalPets, totalTutors };
-  }, [appointments, pets, today]);
+    const monthlyRevenue = invoices
+      .filter(inv => inv.status === 'Pago' && inv.paidAt && inv.paidAt.toDate() >= firstDayOfMonth && inv.paidAt.toDate() <= lastDayOfMonth)
+      .reduce((sum, inv) => sum + inv.totalAmount, 0);
+
+    const accountsReceivable = invoices
+      .filter(inv => inv.status === 'Pendente' || inv.status === 'Atrasado')
+      .reduce((sum, inv) => sum + inv.totalAmount, 0);
+
+    return { totalToday, totalPets, totalTutors, monthlyRevenue, accountsReceivable };
+  }, [appointments, pets, invoices, today]);
 
   const chartData = useMemo(() => {
     const start = startOfWeek(today, { weekStartsOn: 1 }); // Começa na segunda
@@ -90,8 +107,12 @@ export default function ProfessionalDashboard() {
     return data;
   }, [appointments, today]);
 
+  const lowStockItems = useMemo(() => 
+    inventory.filter(item => item.quantity <= 5).slice(0, 5), 
+  [inventory]);
 
-  const isLoading = appointmentsLoading || petsLoading || tutorLoading;
+
+  const isLoading = appointmentsLoading || petsLoading || tutorsLoading || invoicesLoading || inventoryLoading;
 
 
   return (
@@ -112,7 +133,7 @@ export default function ProfessionalDashboard() {
             <Clock className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            {isLoading ? <Loader2 className="h-6 w-6 animate-spin"/> : <div className="text-2xl font-bold">{stats.totalToday}</div>}
+            {isLoading ? <Skeleton className="h-8 w-1/4" /> : <div className="text-2xl font-bold">{stats.totalToday}</div>}
             <p className="text-xs text-muted-foreground">
               {stats.totalToday > 0 ? `${stats.totalToday} agendadas para hoje` : "Nenhuma consulta para hoje"}
             </p>
@@ -124,7 +145,7 @@ export default function ProfessionalDashboard() {
             <PawPrint className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            {petsLoading ? <Loader2 className="h-6 w-6 animate-spin"/> : <div className="text-2xl font-bold">{stats.totalPets}</div>}
+            {isLoading ? <Skeleton className="h-8 w-1/4" /> : <div className="text-2xl font-bold">{stats.totalPets}</div>}
             <p className="text-xs text-muted-foreground">
               pacientes cadastrados na clínica
             </p>
@@ -132,25 +153,25 @@ export default function ProfessionalDashboard() {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total de Clientes</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Faturamento do Mês</CardTitle>
+            <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            {petsLoading ? <Loader2 className="h-6 w-6 animate-spin"/> : <div className="text-2xl font-bold">{stats.totalTutors}</div>}
+            {isLoading ? <Skeleton className="h-8 w-2/5" /> : <div className="text-2xl font-bold">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(stats.monthlyRevenue)}</div>}
             <p className="text-xs text-muted-foreground">
-              tutores ativos na plataforma
+              total de faturas pagas no mês
             </p>
           </CardContent>
         </Card>
          <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Faturamento (Mês)</CardTitle>
-            <ArrowUpRight className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Contas a Receber</CardTitle>
+            <FileWarning className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">R$ 12,234.56</div>
+            {isLoading ? <Skeleton className="h-8 w-2/5" /> : <div className="text-2xl font-bold">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(stats.accountsReceivable)}</div>}
             <p className="text-xs text-muted-foreground">
-              +18.1% em relação ao mês passado
+              soma de faturas pendentes
             </p>
           </CardContent>
         </Card>
@@ -174,8 +195,15 @@ export default function ProfessionalDashboard() {
         </CardHeader>
         <CardContent>
           {isLoading ? (
-            <div className="flex justify-center items-center h-48">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <div className="space-y-2">
+              {[...Array(5)].map((_, i) => (
+                <div key={i} className="flex items-center gap-4 p-2">
+                  <Skeleton className="h-6 w-24" />
+                  <Skeleton className="h-8 w-8 rounded-full" />
+                  <Skeleton className="h-5 flex-1" />
+                  <Skeleton className="h-6 w-20" />
+                </div>
+              ))}
             </div>
           ) : (
             <Table>
@@ -192,6 +220,7 @@ export default function ProfessionalDashboard() {
                 {upcomingAppointments.length > 0 ? (
                   upcomingAppointments.map((apt) => {
                     const pet = pets.find((p) => p.id === apt.petId);
+                    const tutor = tutors.find(t => t.id === pet?.tutorId);
                     return (
                       <TableRow key={apt.id}>
                           <TableCell className="font-semibold">
@@ -242,67 +271,122 @@ export default function ProfessionalDashboard() {
             </CardDescription>
         </CardHeader>
         <CardContent className="pl-2">
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={chartData}>
-                <XAxis
-                  dataKey="name"
-                  stroke="#888888"
-                  fontSize={12}
-                  tickLine={false}
-                  axisLine={false}
-                />
-                <YAxis
-                  stroke="#888888"
-                  fontSize={12}
-                  tickLine={false}
-                  axisLine={false}
-                  tickFormatter={(value) => `${value}`}
-                  allowDecimals={false}
-                />
-                <Bar dataKey="total" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+            {isLoading ? <Skeleton className="h-[300px] w-full" /> : (
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={chartData}>
+                  <XAxis
+                    dataKey="name"
+                    stroke="#888888"
+                    fontSize={12}
+                    tickLine={false}
+                    axisLine={false}
+                  />
+                  <YAxis
+                    stroke="#888888"
+                    fontSize={12}
+                    tickLine={false}
+                    axisLine={false}
+                    tickFormatter={(value) => `${value}`}
+                    allowDecimals={false}
+                  />
+                  <Bar dataKey="total" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
         </CardContent>
       </Card>
     </div>
-    <Card>
-        <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-                <PhoneForwarded /> Atendimentos Pendentes do Chatbot
-            </CardTitle>
-            <CardDescription>
-                Usuários que solicitaram contato de um atendente através do chatbot.
-            </CardDescription>
-        </CardHeader>
-        <CardContent>
-            {notifications.length > 0 ? (
-                <ul className="space-y-4">
-                    {notifications.map(notif => (
-                        <li key={notif.id} className="p-3 bg-secondary rounded-lg">
-                            <h4 className="font-semibold">{notif.userName} - {notif.userContact}</h4>
-                            <p className="text-sm text-muted-foreground mt-1">"{notif.reason}"</p>
-                             <div className="text-xs text-muted-foreground/80 mt-2 text-right">
-                                {new Date(notif.timestamp).toLocaleString('pt-BR')}
-                            </div>
-                        </li>
-                    ))}
-                </ul>
-            ) : (
-                <div className="text-center text-muted-foreground p-8">
-                    <p>Nenhuma solicitação de atendimento pendente.</p>
+    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
+        <Card className="lg:col-span-3">
+            <CardHeader className="flex flex-row items-center">
+                <div className="grid gap-2">
+                    <CardTitle className="flex items-center gap-2"><AlertCircle className="text-destructive" /> Itens com Estoque Baixo</CardTitle>
+                    <CardDescription>
+                    Produtos que precisam de reposição urgente.
+                    </CardDescription>
                 </div>
-            )}
-        </CardContent>
-        {notifications.length > 0 && (
-             <CardFooter>
-                <Button variant="outline" className="w-full" onClick={clearNotifications}>
-                    Marcar todos como resolvidos
+                <Button asChild size="sm" className="ml-auto gap-1">
+                    <Link href="/professional/estoque">
+                    Ver Estoque
+                    <ArrowUpRight className="h-4 w-4" />
+                    </Link>
                 </Button>
-            </CardFooter>
-        )}
-      </Card>
+            </CardHeader>
+            <CardContent>
+                {isLoading ? (
+                    <div className="space-y-2">
+                      {[...Array(3)].map((_,i) => (
+                        <div key={i} className="flex justify-between">
+                          <Skeleton className="h-5 w-2/3" />
+                          <Skeleton className="h-5 w-1/4" />
+                        </div>
+                      ))}
+                    </div>
+                ) : (
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                            <TableHead>Produto</TableHead>
+                            <TableHead className="text-right">Quantidade Restante</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {lowStockItems.length > 0 ? (
+                                lowStockItems.map((item) => (
+                                    <TableRow key={item.id}>
+                                        <TableCell className="font-medium">{item.productName}</TableCell>
+                                        <TableCell className="text-right font-bold text-destructive">{item.quantity}</TableCell>
+                                    </TableRow>
+                                ))
+                            ) : (
+                                <TableRow>
+                                    <TableCell colSpan={2} className="text-center h-24">Nenhum item com estoque baixo.</TableCell>
+                                </TableRow>
+                            )}
+                        </TableBody>
+                    </Table>
+                )}
+            </CardContent>
+        </Card>
+        <Card className="lg:col-span-4">
+            <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                    <PhoneForwarded /> Atendimentos Pendentes do Chatbot
+                </CardTitle>
+                <CardDescription>
+                    Usuários que solicitaram contato de um atendente através do chatbot.
+                </CardDescription>
+            </CardHeader>
+            <CardContent>
+                {notifications.length > 0 ? (
+                    <ul className="space-y-4">
+                        {notifications.map(notif => (
+                            <li key={notif.id} className="p-3 bg-secondary rounded-lg">
+                                <h4 className="font-semibold">{notif.userName} - {notif.userContact}</h4>
+                                <p className="text-sm text-muted-foreground mt-1">"{notif.reason}"</p>
+                                <div className="text-xs text-muted-foreground/80 mt-2 text-right">
+                                    {new Date(notif.timestamp).toLocaleString('pt-BR')}
+                                </div>
+                            </li>
+                        ))}
+                    </ul>
+                ) : (
+                    <div className="text-center text-muted-foreground p-8">
+                        <MessageSquareCheck className="mx-auto h-12 w-12" />
+                        <h3 className="mt-4 text-lg font-semibold">Tudo resolvido!</h3>
+                        <p className="mt-1 text-sm">Sua caixa de entrada de atendimentos está limpa.</p>
+                    </div>
+                )}
+            </CardContent>
+            {notifications.length > 0 && (
+                <CardFooter>
+                    <Button variant="outline" className="w-full" onClick={clearNotifications}>
+                        Marcar todos como resolvidos
+                    </Button>
+                </CardFooter>
+            )}
+        </Card>
+    </div>
     </>
   );
 }
-
-    
